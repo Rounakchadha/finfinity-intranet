@@ -1,0 +1,52 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: finxportal
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - portal_storage:/var/www/html/storage/app
+      - portal_logs:/var/www/html/storage/logs
+      - ./certs:/etc/nginx/ssl:ro
+    networks:
+      - finxPortal
+    depends_on:
+      - db
+      - redis
+
+  db:
+    image: postgres:16-alpine
+    container_name: finxportal_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - finxPortal
+
+  redis:
+    image: redis:7-alpine
+    container_name: finxportal_redis
+    restart: unless-stopped
+    networks:
+      - finxPortal
+
+networks:
+  finxPortal:
+    driver: bridge
+
+volumes:
+  portal_storage:
+  portal_logs:
+  db_data:
