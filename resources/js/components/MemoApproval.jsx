@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
-const MemoApproval = ({ onClose }) => {
+const MemoApproval = () => {
+  const navigate = useNavigate();
   // Main state management
-  const [activeTab, setActiveTab] = useState('raise'); // 'raise' or 'approve'
+  const [activeTab, setActiveTab] = useState('raise'); // 'raise', 'approve', or 'my-memos'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -21,10 +23,26 @@ const MemoApproval = ({ onClose }) => {
   const [declineModal, setDeclineModal] = useState({ show: false, approval: null });
   const [declineReason, setDeclineReason] = useState('');
 
+  // My memos states
+  const [myMemos, setMyMemos] = useState([]);
+  const [myMemosLoading, setMyMemosLoading] = useState(false);
+  const [myMemosError, setMyMemosError] = useState(null);
+
+  // Toast notification
+  const [toast, setToast] = useState(null); // { type: 'success'|'error', message }
+
+  const showToast = (type, message) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 5000);
+  };
+
   useEffect(() => {
     fetchGroupMembers();
     if (activeTab === 'approve') {
       fetchPendingApprovals();
+    }
+    if (activeTab === 'my-memos') {
+      fetchMyMemos();
     }
   }, [activeTab]);
 
@@ -114,15 +132,15 @@ const MemoApproval = ({ onClose }) => {
 
   const handleSubmitMemo = async () => {
     if (!description.trim()) {
-      alert('Please enter a memo description');
+      showToast('error', 'Please enter a memo description');
       return;
     }
     if (!document) {
-      alert('Please upload a document');
+      showToast('error', 'Please upload a document');
       return;
     }
     if (selectedApprovers.length === 0) {
-      alert('Please select at least one approver group');
+      showToast('error', 'Please select at least one approver group');
       return;
     }
 
@@ -153,14 +171,30 @@ const MemoApproval = ({ onClose }) => {
       setDocument(null);
       setSelectedApprovers([]);
       
-      alert(`Memo raised successfully! Approval required from: ${selectedApprovers.join(', ')}`);
-      
+      showToast('success', `Memo raised! Approval required from: ${selectedApprovers.join(', ')}`);
+
     } catch (err) {
       console.error('Error submitting memo:', err);
       const errorMessage = err.response?.data?.message || err.message || 'Failed to submit memo';
-      alert(`Error: ${errorMessage}`);
+      showToast('error', errorMessage);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // ====== MY MEMOS FUNCTIONS ======
+
+  const fetchMyMemos = async () => {
+    setMyMemosLoading(true);
+    setMyMemosError(null);
+    try {
+      const response = await axios.get('/api/my-memos');
+      setMyMemos(Array.isArray(response.data) ? response.data : []);
+    } catch (err) {
+      setMyMemosError('Failed to load your memos. Please try again.');
+      setMyMemos([]);
+    } finally {
+      setMyMemosLoading(false);
     }
   };
 
@@ -193,12 +227,12 @@ const MemoApproval = ({ onClose }) => {
       // Remove approved item from list
       setApprovals(prev => prev.filter(approval => approval.id !== approvalId));
       
-      alert(`Approved successfully by ${response.data.approved_by} for ${response.data.group}`);
-      
+      showToast('success', `Approved by ${response.data.approved_by} for ${response.data.group}`);
+
     } catch (err) {
       console.error('Error approving memo:', err);
       const errorMessage = err.response?.data?.error || err.message || 'Failed to approve memo';
-      alert(`Error: ${errorMessage}`);
+      showToast('error', errorMessage);
     } finally {
       setProcessingId(null);
     }
@@ -206,7 +240,7 @@ const MemoApproval = ({ onClose }) => {
 
   const handleDeclineSubmit = async () => {
     if (!declineReason.trim()) {
-      alert('Please provide a reason for declining');
+      showToast('error', 'Please provide a reason for declining');
       return;
     }
 
@@ -224,12 +258,13 @@ const MemoApproval = ({ onClose }) => {
       setDeclineModal({ show: false, approval: null });
       setDeclineReason('');
       
-      alert(`Declined successfully by ${response.data.declined_by} for ${response.data.group}. ${response.data.email_sent ? 'Notification email has been sent.' : ''}`);
-      
+      const emailNote = response.data.email_sent ? ' Notification email sent.' : '';
+      showToast('success', `Declined by ${response.data.declined_by} for ${response.data.group}.${emailNote}`);
+
     } catch (err) {
       console.error('Error declining memo:', err);
       const errorMessage = err.response?.data?.error || err.message || 'Failed to decline memo';
-      alert(`Error: ${errorMessage}`);
+      showToast('error', errorMessage);
     } finally {
       setProcessingId(null);
     }
@@ -258,6 +293,92 @@ const MemoApproval = ({ onClose }) => {
   };
 
   // ====== RENDER FUNCTIONS ======
+
+  const STATUS_COLORS = {
+    pending:  'bg-amber-50 text-amber-700 border-amber-200',
+    approved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    declined: 'bg-red-50 text-red-600 border-red-200',
+  };
+
+  const APPROVAL_COLORS = {
+    pending:  'bg-amber-100 text-amber-800',
+    approved: 'bg-emerald-100 text-emerald-800',
+    declined: 'bg-red-100 text-red-700',
+  };
+
+  const renderMyMemosTab = () => (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-lg font-semibold text-[#115948]">My Raised Memos</h3>
+        <button
+          onClick={fetchMyMemos}
+          disabled={myMemosLoading}
+          className="bg-[#177761] hover:bg-[#115948] text-white px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Refresh
+        </button>
+      </div>
+
+      {myMemosLoading ? (
+        <div className="text-center py-16 text-[#115948]">Loading your memos...</div>
+      ) : myMemosError ? (
+        <div className="text-center py-16">
+          <div className="text-red-600 mb-4">{myMemosError}</div>
+          <button onClick={fetchMyMemos} className="text-[#115948] underline">Retry</button>
+        </div>
+      ) : myMemos.length === 0 ? (
+        <div className="text-center py-16">
+          <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <div className="text-slate-500 text-lg font-medium">No memos raised yet.</div>
+          <div className="text-slate-400 text-sm mt-1">Use the "Raise Ticket" tab to submit a memo.</div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {myMemos.map((memo) => (
+            <div key={memo.id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <p className="font-semibold text-slate-900 text-sm flex-1">{memo.description}</p>
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${STATUS_COLORS[memo.status] ?? 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                  {memo.status.charAt(0).toUpperCase() + memo.status.slice(1)}
+                </span>
+              </div>
+
+              <p className="text-[11px] text-slate-400 mb-3">
+                Raised {formatDate(memo.created_at)}
+              </p>
+
+              {/* Per-group approval status */}
+              {memo.approvals && memo.approvals.length > 0 && (
+                <div className="border-t border-slate-100 pt-3 space-y-2">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Approval Status</p>
+                  {[...memo.approvals].sort((a, b) => a.priority - b.priority).map((appr, i) => (
+                    <div key={i} className="flex items-center justify-between text-xs">
+                      <span className="text-slate-600">{appr.group}</span>
+                      <div className="flex items-center gap-2">
+                        {appr.comment && (
+                          <span className="text-slate-400 italic truncate max-w-[160px]">"{appr.comment}"</span>
+                        )}
+                        <span className={`px-2 py-0.5 rounded-full font-semibold ${APPROVAL_COLORS[appr.status] ?? 'bg-slate-100 text-slate-600'}`}>
+                          {appr.status.charAt(0).toUpperCase() + appr.status.slice(1)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   const renderRaiseTicketTab = () => (
     <div className="space-y-6">
@@ -584,50 +705,67 @@ const MemoApproval = ({ onClose }) => {
   );
 
   return (
-    <div className="h-full bg-white overflow-y-auto">
-      {/* Header */}
-      <div className="bg-[#115948] text-white p-6 rounded-b-2xl mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Memo Approval System</h1>
-            <p className="text-green-200 mt-1">Raise tickets and manage approvals</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="bg-white text-[#115948] px-4 py-2 rounded-lg transition-colors hover:bg-gray-100"
-          >
-            Back to Dashboard
-          </button>
+    <div className="p-8 h-full flex flex-col overflow-y-auto">
+      {/* Page Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Memo Approval</h1>
+          <p className="text-slate-500 text-sm mt-0.5">Raise tickets and manage pending approvals</p>
         </div>
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+          Back to Dashboard
+        </button>
+      </div>
 
-        {/* Tab Navigation */}
-        <div className="flex space-x-1 mt-6">
-          <button
-            onClick={() => setActiveTab('raise')}
-            className={`px-6 py-2 rounded-lg transition-colors ${
-              activeTab === 'raise'
-                ? 'bg-white text-[#115948]'
-                : 'bg-[#177761] text-white hover:bg-white hover:text-[#115948]'
-            }`}
-          >
-            Raise Ticket
-          </button>
-          <button
-            onClick={() => setActiveTab('approve')}
-            className={`px-6 py-2 rounded-lg transition-colors ${
-              activeTab === 'approve'
-                ? 'bg-white text-[#115948]'
-                : 'bg-[#177761] text-white hover:bg-white hover:text-[#115948]'
-            }`}
-          >
-            My Approvals
-          </button>
+      {/* Toast */}
+      {toast && (
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold mb-4 border ${
+          toast.type === 'success'
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+            : 'bg-red-50 border-red-200 text-red-600'
+        }`}>
+          <span className="flex-1">{toast.message}</span>
+          <button onClick={() => setToast(null)} className="text-current opacity-60 hover:opacity-100 text-lg leading-none">×</button>
         </div>
+      )}
+
+      {/* Tab Navigation */}
+      <div className="flex gap-1 mb-6 bg-slate-100 p-1 rounded-xl w-fit">
+        <button
+          onClick={() => setActiveTab('raise')}
+          className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+            activeTab === 'raise' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          Raise Ticket
+        </button>
+        <button
+          onClick={() => setActiveTab('approve')}
+          className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+            activeTab === 'approve' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          My Approvals
+        </button>
+        <button
+          onClick={() => setActiveTab('my-memos')}
+          className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+            activeTab === 'my-memos' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          My Memos
+        </button>
       </div>
 
       {/* Content */}
-      <div className="px-6 pb-6">
-        {activeTab === 'raise' ? renderRaiseTicketTab() : renderApprovalTab()}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex-1">
+        {activeTab === 'raise' && renderRaiseTicketTab()}
+        {activeTab === 'approve' && renderApprovalTab()}
+        {activeTab === 'my-memos' && renderMyMemosTab()}
       </div>
 
       {/* Decline Modal */}

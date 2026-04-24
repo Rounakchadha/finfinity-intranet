@@ -21,6 +21,12 @@ class ConfigController extends Controller
                     $userGroups[] = $group['displayName'];
                 }
             }
+            // Also include injected/resolved roles (superadmin bypass, transitiveMemberOf roles)
+            foreach ($user['roles'] ?? [] as $role) {
+                if (!in_array($role, $userGroups)) {
+                    $userGroups[] = $role;
+                }
+            }
         }
 
         $features = config('portal.features');
@@ -47,6 +53,7 @@ class ConfigController extends Controller
         'it-admin-tools'=> 'asset_management',
         'asset-request' => 'asset_management',
         'hr-admin-tools'=> 'hr_module',
+        'compliance'    => 'announcements',
         'calendar'      => 'shared_calendar',
     ];
 
@@ -62,7 +69,10 @@ class ConfigController extends Controller
             if (empty($item['roles'])) {
                 return true;
             }
-            return count(array_intersect($item['roles'], $userGroups)) > 0;
+            // Case-insensitive role match
+            $requiredLower = array_map('strtolower', $item['roles']);
+            $userLower     = array_map('strtolower', $userGroups);
+            return count(array_intersect($requiredLower, $userLower)) > 0;
         }));
     }
 }

@@ -119,6 +119,53 @@ class MemoController extends Controller
         }
     }
 
+    public function myMemos()
+    {
+        try {
+            $user = Session::get('user');
+            if (!$user || !($user['authenticated'] ?? false)) {
+                return response()->json(['error' => 'Not authenticated'], 401);
+            }
+
+            $email = $user['profile']['userPrincipalName'] ?? $user['profile']['mail'] ?? '';
+
+            $memos = Memo::with('approvals')
+                ->where('raised_by_email', $email)
+                ->orderByDesc('created_at')
+                ->get()
+                ->map(function ($memo) {
+                    $approvals = $memo->approvals->map(fn($a) => [
+                        'group'    => $a->required_group_name,
+                        'priority' => $a->group_priority,
+                        'status'   => $a->status,
+                        'comment'  => $a->comment,
+                    ]);
+
+                    $overallStatus = 'pending';
+                    if ($memo->approvals->every(fn($a) => $a->status === 'approved')) {
+                        $overallStatus = 'approved';
+                    } elseif ($memo->approvals->contains(fn($a) => $a->status === 'declined')) {
+                        $overallStatus = 'declined';
+                    }
+
+                    return [
+                        'id'          => $memo->id,
+                        'description' => $memo->description,
+                        'issued_on'   => $memo->issued_on,
+                        'created_at'  => $memo->created_at,
+                        'status'      => $overallStatus,
+                        'approvals'   => $approvals,
+                    ];
+                });
+
+            return response()->json($memos);
+
+        } catch (\Exception $e) {
+            Log::error('MemoController@myMemos', ['error' => $e->getMessage()]);
+            return response()->json(['error' => 'Failed to fetch memos'], 500);
+        }
+    }
+
     private function getRequiredGroupsFromNames($groupNames)
     {
         $requiredGroups = [];

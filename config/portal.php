@@ -21,8 +21,9 @@ return [
         ['key' => 'memo-approval',  'label' => 'Memo Approval',   'path' => '/memo-approval',   'icon' => 'memo',     'roles' => []],
         ['key' => 'qr-codes',       'label' => 'QR Codes',         'path' => '/qr-codes',        'icon' => 'qr',       'roles' => []],
         ['key' => 'asset-request',  'label' => 'IT Support',       'path' => '/asset-request',   'icon' => 'settings', 'roles' => []],
-        ['key' => 'it-admin-tools', 'label' => 'IT Admin',        'path' => '/it-admin-tools',  'icon' => 'settings', 'roles' => ['IT Manager', 'IT Admin']],
-        ['key' => 'hr-admin-tools', 'label' => 'HR Admin',        'path' => '/hr-admin-tools',  'icon' => 'hr',       'roles' => ['HR', 'HR Manager']],
+        ['key' => 'it-admin-tools',      'label' => 'IT Admin',        'path' => '/it-admin-tools',      'icon' => 'settings', 'roles' => ['IT Manager', 'IT Admin', 'Admin', 'Global Administrator', 'Company Administrator']],
+        ['key' => 'hr-admin-tools',      'label' => 'HR Admin',        'path' => '/hr-admin-tools',      'icon' => 'hr',       'roles' => ['HR', 'HR Manager', 'Admin', 'Global Administrator', 'Company Administrator']],
+        ['key' => 'compliance',          'label' => 'Compliance',      'path' => '/compliance',          'icon' => 'shield',   'roles' => ['Admin', 'HR', 'HR Manager', 'Global Administrator', 'Company Administrator']],
     ],
 
     /*
@@ -30,10 +31,7 @@ return [
     | Full-screen pages (no sidebar/right panel)
     |--------------------------------------------------------------------------
     */
-    'fullscreen_paths' => [
-        '/it-admin-tools',
-        '/hr-admin-tools',
-    ],
+    'fullscreen_paths' => [],
 
     /*
     |--------------------------------------------------------------------------
@@ -102,7 +100,23 @@ return [
     | Groups that can publish announcements and access admin functions
     |--------------------------------------------------------------------------
     */
-    'admin_groups' => ['Admin', 'HR', 'HR Manager'],
+    'admin_groups' => ['Admin', 'HR', 'HR Manager', 'Global Administrator', 'Company Administrator'],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Superadmin emails — bypass ALL role checks, always have full admin access
+    |--------------------------------------------------------------------------
+    */
+    'superadmin_emails' => array_filter(explode(',', env('SUPERADMIN_EMAILS', ''))),
+    'hr_emails'         => array_filter(explode(',', env('HR_EMAILS', ''))),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Notification recipients
+    |--------------------------------------------------------------------------
+    */
+    'it_admin_email'         => env('IT_ADMIN_EMAIL', 'it@finfinity.co.in'),
+    'employee_email_domain'  => env('EMPLOYEE_EMAIL_DOMAIN', 'finfinity.co.in'),
 
     /*
     |--------------------------------------------------------------------------

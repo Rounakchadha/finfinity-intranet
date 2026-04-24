@@ -24,8 +24,12 @@ Route::get('/auth/login', [AuthController::class, 'login']);
 Route::get('/auth/callback', [AuthController::class, 'callback']);
 Route::get('/auth/azure/callback', [AuthController::class, 'callback']);
 
-// Local developer bypass (accessible directly from browser)
+// Local developer bypass — disabled in production via LOCAL_LOGIN_ENABLED env var
 Route::get('/auth/local-login', function () {
+    if (!config('app.local_login_enabled', false)) {
+        abort(404);
+    }
+    // Roles MUST match portal.admin_groups and portal.navigation role gates
     Session::put('user', [
         'authenticated' => true,
         'profile' => [
@@ -35,11 +39,11 @@ Route::get('/auth/local-login', function () {
             'id' => 'local-admin-12345'
         ],
         'groups' => [
-            ['displayName' => 'FinFinity IT'],
-            ['displayName' => 'HR Team'],
-            ['displayName' => 'Management']
+            ['displayName' => 'Admin'],
+            ['displayName' => 'HR Manager'],
+            ['displayName' => 'IT Admin'],
         ],
-        'roles' => ['FinFinity IT', 'HR Team', 'Management']
+        'roles' => ['Admin', 'HR Manager', 'IT Admin']
     ]);
     return redirect('/app');
 });
@@ -55,6 +59,22 @@ Route::prefix('api')->group(function () {
     // Authentication
     // -------------------------------------------------------------------------
     Route::get('/auth/status', [AuthController::class, 'status']);
+    Route::get('/auth/calendar', [AuthController::class, 'personalCalendar']);
+    Route::get('/calendar/events', [\App\Http\Controllers\CalendarEventController::class, 'index']);
+    Route::post('/calendar/events', [\App\Http\Controllers\CalendarEventController::class, 'store']);
+    Route::delete('/calendar/events/{id}', [\App\Http\Controllers\CalendarEventController::class, 'destroy']);
+    Route::get('/auth/roles', function () {
+        $user = Session::get('user');
+        if (!$user) return response()->json(['authenticated' => false]);
+        return response()->json([
+            'authenticated' => true,
+            'email'  => $user['profile']['userPrincipalName'] ?? $user['profile']['mail'] ?? null,
+            'name'   => $user['profile']['displayName'] ?? null,
+            'roles'  => $user['roles'] ?? [],
+            'admin_groups_config' => config('portal.admin_groups', []),
+            'superadmin_emails_config' => config('portal.superadmin_emails', []),
+        ]);
+    });
     Route::get('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/calendar/refresh', [AuthController::class, 'refreshCalendar']);
 
@@ -64,7 +84,13 @@ Route::prefix('api')->group(function () {
     Route::get('/group-members', [GroupMemberController::class, 'index']);
     Route::get('/groups', [GroupMemberController::class, 'getAzureGroups']);
     Route::get('/employees', [EmployeeController::class, 'index']);
+    Route::get('/employees/by-email', [EmployeeController::class, 'show']);
+    Route::put('/employees/by-email', [EmployeeController::class, 'update']);
+    Route::delete('/employees/by-email', [EmployeeController::class, 'destroy']);
     Route::get('/documents', [DocumentController::class, 'index']);
+    Route::post('/documents', [DocumentController::class, 'store']);
+    Route::get('/documents/{id}/download', [DocumentController::class, 'download']);
+    Route::delete('/documents/{id}', [DocumentController::class, 'destroy']);
     Route::get('/shared-calendar', [SharedCalendarController::class, 'index']);
 
     // Links
@@ -76,10 +102,12 @@ Route::prefix('api')->group(function () {
     // Announcements & News Feed
     // -------------------------------------------------------------------------
     Route::get('/announcements', [AnnouncementController::class, 'index']);
+    Route::get('/announcements/latest', [AnnouncementController::class, 'latest']);
     Route::post('/announcements', [AnnouncementController::class, 'store']);
     Route::put('/announcements/{id}', [AnnouncementController::class, 'update']);
     Route::delete('/announcements/{id}', [AnnouncementController::class, 'destroy']);
     Route::post('/announcements/{id}/acknowledge', [AnnouncementController::class, 'acknowledge']);
+    Route::get('/announcements/{id}/acknowledgements', [AnnouncementController::class, 'acknowledgements']);
 
     // -------------------------------------------------------------------------
     // QR Code Manager
@@ -93,6 +121,7 @@ Route::prefix('api')->group(function () {
     // Memo & Approvals
     // -------------------------------------------------------------------------
     Route::post('/memos', [MemoController::class, 'store']);
+    Route::get('/my-memos', [MemoController::class, 'myMemos']);
     Route::get('/my-approvals', [ApprovalController::class, 'myApprovals']);
     Route::post('/approvals/{id}/approve', [ApprovalController::class, 'approve']);
     Route::post('/approvals/{id}/decline', [ApprovalController::class, 'decline']);
@@ -122,6 +151,8 @@ Route::prefix('api')->group(function () {
         Route::post('/reallocate', [AssetController::class, 'reallocate']);
         Route::post('/decommission', [AssetController::class, 'decommission']);
         Route::get('/audit-logs', [AssetController::class, 'auditLogs']);
+        Route::get('/laptop-matrix', [AssetController::class, 'laptopMatrix']);
+        Route::put('/{tag}', [AssetController::class, 'update']);
     });
 
     // -------------------------------------------------------------------------

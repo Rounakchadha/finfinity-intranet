@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
+import { getAuthStatus } from '../authCache';
 
 const CATEGORIES = [
   { value: 'wifi',       label: 'Wi-Fi' },
@@ -76,13 +77,12 @@ export default function QrCodeManager({ config }) {
   const [filter, setFilter] = useState('all');
 
   const adminGroups = config?.admin_groups ?? ['Admin', 'HR', 'HR Manager', 'IT Manager'];
-  const isAdmin = userRoles.some(r => adminGroups.includes(r));
+  const isAdmin = userRoles.some(r => adminGroups.map(g => g.toLowerCase()).includes(r.toLowerCase()));
 
   useEffect(() => {
-    fetch('/api/auth/status', { credentials: 'include' })
-      .then(r => r.json())
-      .then(data => { if (data.user?.roles) setUserRoles(data.user.roles); })
-      .catch(() => {});
+    getAuthStatus().then(data => {
+      if (data.user?.roles) setUserRoles(data.user.roles);
+    });
     loadQrCodes();
   }, []);
 

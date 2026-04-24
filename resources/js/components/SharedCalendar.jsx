@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-export default function SharedCalendar() {
+export default function SharedCalendar({ config }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -16,8 +16,10 @@ export default function SharedCalendar() {
       const response = await fetch('/api/shared-calendar', { credentials: 'include' });
       const data = await response.json();
       
-      if (data.events && Array.isArray(data.events)) {
-        setEvents(data.events);
+      // Backend returns a flat array; also handle legacy {events:[]} shape
+      const list = Array.isArray(data) ? data : (Array.isArray(data.events) ? data.events : []);
+      if (list.length > 0) {
+        setEvents(list);
       } else {
         setError('No shared calendar events available');
       }
@@ -79,7 +81,7 @@ export default function SharedCalendar() {
   return (
     <div className="w-full h-full flex flex-col">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-bold text-slate-800 tracking-tight">Company Announcements</h3>
+        <h3 className="text-lg font-bold text-slate-800 tracking-tight">{config?.right_panel?.shared_calendar_title ?? 'Company Announcements'}</h3>
         <button
           onClick={fetchSharedEvents}
           className="p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors"

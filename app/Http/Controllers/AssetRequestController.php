@@ -18,7 +18,7 @@ class AssetRequestController extends Controller
     private function isITAdmin(array $user): bool
     {
         $adminGroups = ['IT Manager', 'IT Admin', 'Admin'];
-        return !empty(array_intersect($user['roles'] ?? [], $adminGroups));
+        return !empty(array_intersect(array_map('strtolower', $user['roles'] ?? []), array_map('strtolower', $adminGroups)));
     }
 
     // Employee submits a new request
@@ -36,8 +36,8 @@ class AssetRequestController extends Controller
             ]);
 
             $assetRequest = AssetRequest::create([
-                'employee_email' => $user['email'],
-                'employee_name'  => $user['name'],
+                'employee_email' => $user['profile']['userPrincipalName'] ?? $user['profile']['mail'] ?? '',
+                'employee_name'  => $user['profile']['displayName'] ?? 'Unknown',
                 'asset_type'     => $request->asset_type,
                 'notes'          => $request->notes,
                 'status'         => 'pending',
@@ -63,7 +63,8 @@ class AssetRequestController extends Controller
             $query = AssetRequest::orderByDesc('created_at');
 
             if (!$this->isITAdmin($user)) {
-                $query->where('employee_email', $user['email']);
+                $email = $user['profile']['userPrincipalName'] ?? $user['profile']['mail'] ?? '';
+                $query->where('employee_email', $email);
             }
 
             if ($request->filled('status')) {
@@ -104,7 +105,7 @@ class AssetRequestController extends Controller
 
             $assetRequest->update([
                 'status'           => $request->status,
-                'reviewed_by_email'=> $user['email'],
+                'reviewed_by_email'=> $user['profile']['userPrincipalName'] ?? $user['profile']['mail'] ?? '',
                 'review_notes'     => $request->review_notes,
                 'reviewed_at'      => now(),
             ]);

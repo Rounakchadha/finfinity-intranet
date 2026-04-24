@@ -715,7 +715,7 @@ class HRAdminController extends Controller
             $subject = "New Employee Asset Setup Required - {$candidate->name}";
             $htmlBody = "<p>Dear IT Team,</p><p>Please prepare assets for new employee:</p><p><strong>Employee Details:</strong><br>Name: {$candidate->name}<br>Email: {$employeeEmail}<br>Department: {$job->department}<br>Start Date: {$startDate}<br>Manager: {$managerEmail}</p><p>Please coordinate asset handover and email setup.</p><p>Best regards,<br>HR Team</p>";
             
-            $itAdminEmail = env('IT_ADMIN_EMAIL');
+            $itAdminEmail = config('portal.it_admin_email');
             if ($itAdminEmail) {
                 $this->emailService->sendEmail($itAdminEmail, 'IT Team', $subject, $htmlBody);
             }
@@ -729,8 +729,8 @@ class HRAdminController extends Controller
         try {
             $subject = "Employee Resignation - Asset Recovery Required";
             $htmlBody = "<p>Dear IT Team,</p><p>Employee resignation notification:</p><p><strong>Employee Details:</strong><br>Name: {$employee->name}<br>Email: {$employee->employee_email}<br>Last Working Day: {$lastWorkingDay}<br>Reason: {$resignationReason}</p><p>Please coordinate asset recovery and email deactivation.</p><p>Best regards,<br>HR Team</p>";
-            
-            $itAdminEmail = env('IT_ADMIN_EMAIL');
+
+            $itAdminEmail = config('portal.it_admin_email');
             if ($itAdminEmail) {
                 $this->emailService->sendEmail($itAdminEmail, 'IT Team', $subject, $htmlBody);
             }
@@ -741,7 +741,7 @@ class HRAdminController extends Controller
 
     private function generateEmployeeEmail($name)
     {
-        $domain = env('EMPLOYEE_EMAIL_DOMAIN', 'finfinity.co.in');
+        $domain = config('portal.employee_email_domain', 'finfinity.co.in');
         $nameParts = explode(' ', strtolower(trim($name)));
         $baseEmail = implode('.', $nameParts);
 

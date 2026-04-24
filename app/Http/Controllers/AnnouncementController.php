@@ -17,8 +17,8 @@ class AnnouncementController extends Controller
 
     private function isAdminOrHR(array $user): bool
     {
-        $roles = $user['roles'] ?? [];
-        $adminGroups = config('portal.admin_groups', ['Admin', 'HR', 'HR Manager']);
+        $roles = array_map('strtolower', $user['roles'] ?? []);
+        $adminGroups = array_map('strtolower', config('portal.admin_groups', ['Admin', 'HR', 'HR Manager']));
         return count(array_intersect($roles, $adminGroups)) > 0;
     }
 
@@ -117,6 +117,40 @@ class AnnouncementController extends Controller
         Announcement::findOrFail($id)->delete();
 
         return response()->json(['message' => 'Deleted']);
+    }
+
+    /** Latest N announcements for the dashboard widget */
+    public function latest()
+    {
+        $user = $this->authorizedUser();
+        if (!$user) {
+            return response()->json(['error' => 'Not authenticated'], 401);
+        }
+
+        $announcements = Announcement::active()
+            ->pinnedFirst()
+            ->latest()
+            ->limit(5)
+            ->get(['id', 'title', 'body', 'posted_by_name', 'is_pinned', 'created_at']);
+
+        return response()->json($announcements);
+    }
+
+    public function acknowledgements($id)
+    {
+        $user = $this->authorizedUser();
+        if (!$user) {
+            return response()->json(['error' => 'Not authenticated'], 401);
+        }
+        if (!$this->isAdminOrHR($user)) {
+            return response()->json(['error' => 'Forbidden'], 403);
+        }
+
+        $acks = AnnouncementAcknowledgement::where('announcement_id', $id)
+            ->orderBy('acknowledged_at')
+            ->get(['id', 'acknowledged_by_email', 'acknowledged_by_name', 'acknowledged_at']);
+
+        return response()->json($acks);
     }
 
     public function acknowledge($id)

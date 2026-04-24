@@ -41,6 +41,8 @@ return [
 
     'debug' => (bool) env('APP_DEBUG', false),
 
+    'local_login_enabled' => (bool) env('LOCAL_LOGIN_ENABLED', false),
+
     /*
     |--------------------------------------------------------------------------
     | Application URL

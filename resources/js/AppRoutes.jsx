@@ -1,7 +1,7 @@
-import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
+import TopNav from './components/TopNav';
 import Dashboard from './components/Dashboard';
-import RightPanel from './components/RightPanel';
 import Login from './components/Login';
 import Calendar from './components/Calendar';
 import DocumentDirectory from './components/DocumentDirectory';
@@ -11,15 +11,13 @@ import Announcements from './components/Announcements';
 import QrCodeManager from './components/QrCodeManager';
 import ITAdminTools from './components/ITAdminTools';
 import HRAdminTools from './components/HRAdminTools';
-import { useState } from 'react';
+import Account from './components/Account';
+import AssetRequestPage from './components/AssetRequestPage';
+import ComplianceDashboard from './components/ComplianceDashboard';
 import '../css/globals.css';
 
 export default function AppRoutes({ isAuthenticated, config }) {
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [showDocs, setShowDocs] = useState(false);
-  const [showEmployeeDirectory, setShowEmployeeDirectory] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
 
   if (!isAuthenticated) {
     return (
@@ -29,9 +27,9 @@ export default function AppRoutes({ isAuthenticated, config }) {
     );
   }
 
-  // Full-screen pages (no sidebar/right panel) — driven by config
-  const fullscreenPaths = config?.fullscreen_paths ?? ['/it-admin-tools', '/hr-admin-tools'];
-  if (fullscreenPaths.includes(location.pathname)) {
+  // Full-screen pages (no sidebar/top nav) — empty by default, all tools are now in-layout
+  const fullscreenPaths = config?.fullscreen_paths ?? [];
+  if (fullscreenPaths.length > 0 && fullscreenPaths.includes(location.pathname)) {
     return (
       <Routes>
         <Route path="/it-admin-tools" element={<ITAdminTools />} />
@@ -41,26 +39,31 @@ export default function AppRoutes({ isAuthenticated, config }) {
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 text-slate-800 font-sans">
-      <Sidebar
-        onCalendarClick={() => setShowCalendar(true)}
-        onDocumentsClick={() => setShowDocs(true)}
-        onEmployeeDirectoryClick={() => setShowEmployeeDirectory(true)}
-        config={config}
-      />
-      <div className="flex-grow overflow-auto">
-        <Routes>
-          <Route path="/"              element={<Dashboard config={config} />} />
-          <Route path="/app"           element={<Dashboard config={config} />} />
-          <Route path="/announcements"  element={<Announcements config={config} />} />
-          <Route path="/qr-codes"       element={<QrCodeManager config={config} />} />
-          <Route path="/memo-approval"  element={<MemoApproval onClose={() => navigate('/')} />} />
-        </Routes>
+    <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
+      <Sidebar config={config} />
+
+      <div className="flex flex-col flex-1 min-w-0">
+        <TopNav config={config} />
+
+        <main className="flex-1 min-w-0 overflow-y-auto">
+          <Routes>
+            <Route path="/"               element={<Dashboard config={config} />} />
+            <Route path="/app"            element={<Dashboard config={config} />} />
+            <Route path="/account"        element={<Account />} />
+            <Route path="/announcements"  element={<Announcements config={config} />} />
+            <Route path="/qr-codes"       element={<QrCodeManager config={config} />} />
+            <Route path="/calendar"       element={<Calendar />} />
+            <Route path="/documents"      element={<DocumentDirectory config={config} />} />
+            <Route path="/directory"      element={<EmployeeDirectory config={config} />} />
+            <Route path="/employees"      element={<EmployeeDirectory config={config} />} />
+            <Route path="/memo-approval"  element={<MemoApproval />} />
+            <Route path="/asset-request"  element={<AssetRequestPage />} />
+            <Route path="/it-admin-tools" element={<ITAdminTools />} />
+            <Route path="/hr-admin-tools" element={<HRAdminTools />} />
+            <Route path="/compliance"     element={<ComplianceDashboard />} />
+          </Routes>
+        </main>
       </div>
-      <RightPanel onShowDocs={() => setShowDocs(true)} config={config} />
-      {showCalendar        && <Calendar           onClose={() => setShowCalendar(false)} />}
-      {showDocs            && <DocumentDirectory  onClose={() => setShowDocs(false)} />}
-      {showEmployeeDirectory && <EmployeeDirectory onClose={() => setShowEmployeeDirectory(false)} />}
     </div>
   );
 }

@@ -16,6 +16,7 @@ services:
       - portal_storage:/var/www/html/storage/app
       - portal_logs:/var/www/html/storage/logs
       - ./certs:/etc/nginx/ssl:ro
+      - ./docker/php/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini:ro
     networks:
       - finxPortal
     depends_on:

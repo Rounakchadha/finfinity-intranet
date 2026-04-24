@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getAuthStatus } from '../authCache';
 
 function PinIcon() {
   return (
@@ -85,17 +86,12 @@ export default function Announcements({ config }) {
   const [error, setError] = useState(null);
 
   const adminGroups = config?.admin_groups ?? ['Admin', 'HR', 'HR Manager'];
-  const isAdminOrHR = userRoles.some(r => adminGroups.includes(r));
+  const isAdminOrHR = userRoles.some(r => adminGroups.map(g => g.toLowerCase()).includes(r.toLowerCase()));
 
   useEffect(() => {
-    fetch('/api/auth/status', { credentials: 'include' })
-      .then(r => r.json())
-      .then(data => {
-        if (data.isAuthenticated && data.user?.roles) {
-          setUserRoles(data.user.roles);
-        }
-      })
-      .catch(() => {});
+    getAuthStatus().then(data => {
+      if (data.isAuthenticated && data.user?.roles) setUserRoles(data.user.roles);
+    });
 
     loadAnnouncements();
   }, []);

@@ -18,7 +18,7 @@ class QrCodeController extends Controller
     {
         $roles       = $user['roles'] ?? [];
         $adminGroups = config('portal.admin_groups', ['Admin', 'HR', 'HR Manager']);
-        return count(array_intersect($roles, $adminGroups)) > 0;
+        return count(array_intersect(array_map('strtolower', $roles), array_map('strtolower', $adminGroups))) > 0;
     }
 
     public function index()

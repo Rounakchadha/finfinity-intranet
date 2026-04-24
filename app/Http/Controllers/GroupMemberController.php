@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\MicrosoftGroupSyncService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
 
@@ -17,27 +18,47 @@ class GroupMemberController extends Controller
 
     public function index()
     {
+        $tokenData = Session::get('token');
+
+        // No Graph token → fall back to local DB employees as approver list
+        if (!$tokenData || !isset($tokenData['access_token'])) {
+            Log::info('GroupMemberController: No Graph token — returning local DB employees as approvers');
+            return response()->json($this->getLocalApprovers());
+        }
+
         try {
             Log::info('GroupMemberController: Getting group members directly from Microsoft Graph');
-            
-            // Fetch directly from Microsoft Graph API every time
             $members = $this->syncService->getAllGroupMembers();
-
-            Log::info('GroupMemberController: Returning members', [
-                'total_members' => count($members),
-                'sample' => array_slice($members, 0, 3) // Log first 3 for debugging
-            ]);
-
+            Log::info('GroupMemberController: Returning members', ['total_members' => count($members)]);
             return response()->json($members);
-
         } catch (\Exception $e) {
-            Log::error('GroupMemberController: Error fetching group members', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            // Return empty array on error - frontend can handle gracefully
-            return response()->json([]);
+            Log::error('GroupMemberController: Graph error, falling back to local DB', ['error' => $e->getMessage()]);
+            return response()->json($this->getLocalApprovers());
+        }
+    }
+
+    /**
+     * Return local DB employees as potential memo approvers.
+     * Shape matches what MemoApproval.jsx expects: name, email, group_name, group_priority.
+     */
+    private function getLocalApprovers(): array
+    {
+        try {
+            $rows = DB::table('employees')
+                ->where('status', 'Active')
+                ->orderBy('department')
+                ->orderBy('name')
+                ->get(['name', 'employee_email', 'department']);
+
+            return $rows->map(fn($e) => [
+                'name'           => $e->name,
+                'email'          => $e->employee_email,
+                'group_name'     => $e->department ?? 'General',
+                'group_priority' => 999,
+            ])->toArray();
+        } catch (\Exception $e) {
+            Log::error('GroupMemberController: Could not query employees table', ['error' => $e->getMessage()]);
+            return [];
         }
     }
 

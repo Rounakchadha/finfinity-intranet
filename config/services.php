@@ -35,6 +35,11 @@ return [
         ],
     ],
 
+    'paperless' => [
+        'url'   => env('PAPERLESS_URL'),
+        'token' => env('PAPERLESS_TOKEN'),
+    ],
+
     'azure' => [
         'client_id'     => env('AZURE_CLIENT_ID'),
         'client_secret' => env('AZURE_CLIENT_SECRET'),

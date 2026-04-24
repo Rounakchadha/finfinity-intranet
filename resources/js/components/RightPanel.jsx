@@ -62,7 +62,7 @@ export default function RightPanel({ onShowDocs, config }) {
             onClick={e => { e.preventDefault(); onShowDocs(); }}
             className="text-slate-700 text-sm font-medium transition duration-200 hover:text-slate-900 flex justify-between items-center group"
           >
-            <span>Document Directory</span>
+            <span>{config?.right_panel?.document_directory_label ?? 'Document Directory'}</span>
             <span className="text-slate-300 group-hover:text-slate-500 transition-colors">→</span>
           </a>
           <hr className="border-gray-200 w-full" />
@@ -80,10 +80,14 @@ export default function RightPanel({ onShowDocs, config }) {
 
       <div className="w-full flex justify-center mb-4 px-6">
         <button
-          onClick={() => navigate('/memo-approval')}
+          onClick={() => {
+            const url = config?.right_panel?.support_url;
+            if (url) window.open(url, '_blank');
+            else navigate('/memo-approval');
+          }}
           className="w-full rounded-xl flex items-center justify-center gap-3 py-3 font-semibold text-sm transition-all duration-200 hover:scale-105 active:scale-95 text-slate-700 bg-white border border-gray-200 shadow-sm hover:bg-slate-50 focus:ring-2 focus:ring-offset-1 focus:ring-gray-200"
         >
-          <SupportIcon /> Support
+          <SupportIcon /> {config?.right_panel?.support_label ?? 'Support'}
         </button>
       </div>
     </div>

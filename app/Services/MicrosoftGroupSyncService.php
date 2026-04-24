@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
+use App\Http\Controllers\AuthController;
 use App\Models\Group;
-use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Log;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
@@ -27,14 +27,11 @@ class MicrosoftGroupSyncService
     public function getAllGroupMembers(): array
     {
         try {
-            // Check if we have a valid access token
-            $tokenData = Session::get('token');
-            if (!$tokenData || !isset($tokenData['access_token'])) {
-                Log::warning('MicrosoftGroupSyncService: No access token available');
+            $this->accessToken = AuthController::getValidToken();
+            if (!$this->accessToken) {
+                Log::warning('MicrosoftGroupSyncService: No valid access token available');
                 return $this->fallbackToSampleData();
             }
-
-            $this->accessToken = $tokenData['access_token'];
 
             Log::info('MicrosoftGroupSyncService: Fetching groups directly from Microsoft Graph');
             
@@ -51,9 +48,13 @@ class MicrosoftGroupSyncService
                 $groupName = $graphGroup['displayName'];
                 $groupId = $graphGroup['id'];
                 
-                // Get priority from local groups table for hierarchy
-                $localGroup = Group::where('name', $groupName)->first();
-                $priority = $localGroup ? $localGroup->priority : 999; // Default low priority
+                // Get priority from local groups table for hierarchy (table may not exist)
+                try {
+                    $localGroup = Group::where('name', $groupName)->first();
+                    $priority = $localGroup ? $localGroup->priority : 999;
+                } catch (\Exception $e) {
+                    $priority = 999;
+                }
                 
                 // Fetch members for this group
                 $members = $this->fetchGroupMembers($groupId);

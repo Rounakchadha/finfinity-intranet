@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\AuthController;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
 
@@ -25,46 +26,25 @@ class SharedCalendarController extends Controller
      */
     public function index(Request $request)
     {
+        $user = Session::get('user');
+        if (!$user || empty($user['authenticated'])) {
+            return response()->json(['error' => 'Not authenticated'], 401);
+        }
+
+        $accessToken = AuthController::getValidToken();
+        if (!$accessToken) {
+            // No Graph token (local login or expired) — return empty, not an error
+            return response()->json([]);
+        }
+
         try {
-            // Check Microsoft Graph session authentication
-            $user = Session::get('user');
-            $tokenData = Session::get('token');
-            
-            if (!$user || !isset($user['authenticated']) || !$user['authenticated']) {
-                return response()->json(['error' => 'Not authenticated'], 401);
-            }
-
-            if (!$tokenData || !isset($tokenData['access_token'])) {
-                return response()->json(['error' => 'No access token available'], 401);
-            }
-
-            $accessToken = $tokenData['access_token'];
-            
             Log::info('SharedCalendarController: Fetching shared calendar events');
-
-            // Get shared calendar events
             $events = $this->fetchSharedCalendarEvents($accessToken);
-
-            return response()->json([
-                'events' => $events,
-                'count' => count($events),
-                'message' => 'Shared calendar events retrieved successfully'
-            ]);
-
+            // Return a flat array — Dashboard does Array.isArray() check
+            return response()->json($events);
         } catch (\Exception $e) {
-            Log::error('SharedCalendarController: Error fetching shared calendar', [
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
-            ]);
-
-            // Return fallback data in case of error
-            return response()->json([
-                'events' => $this->getFallbackEvents(),
-                'count' => 0,
-                'message' => 'Shared calendar unavailable - Microsoft Graph API error',
-                'error' => $e->getMessage()
-            ]);
+            Log::error('SharedCalendarController: Error', ['error' => $e->getMessage()]);
+            return response()->json([]);
         }
     }
 

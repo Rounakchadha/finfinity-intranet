@@ -6,7 +6,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Log;
 use App\Models\Approval;
-use App\Models\Group;
 use App\Services\EmailService;
 
 class ApprovalController extends Controller
@@ -46,13 +45,6 @@ class ApprovalController extends Controller
             Log::info('User has no groups, returning empty approvals');
             return response()->json([]);
         }
-
-        // Get groups with priorities from database for hierarchy
-        $groupPriorities = Group::whereIn('name', $userGroupNames)
-            ->pluck('priority', 'name')
-            ->toArray();
-
-        Log::info('User group priorities', ['group_priorities' => $groupPriorities]);
 
         // Find pending approvals that this user can action
         $pendingApprovals = Approval::with(['memo'])
@@ -118,15 +110,11 @@ class ApprovalController extends Controller
             return response()->json(['error' => 'You are not authorized to approve for this group'], 403);
         }
 
-        // Check if this approval can be processed (hierarchy check)
-        $groupPriorities = Group::whereIn('name', $userGroupNames)
-            ->pluck('priority', 'name')
-            ->toArray();
-            
-        if (!$approval->canBeApprovedByGroup($userGroupNames, $groupPriorities)) {
+        // Check hierarchy: higher priority groups must approve first
+        if (!$approval->canBeApprovedByGroup($userGroupNames, [])) {
             return response()->json(['error' => 'Cannot approve: higher priority groups must approve first'], 403);
         }
-        
+
         // Approve the memo for this group
         $approval->update([
             'status' => 'approved',
@@ -178,12 +166,8 @@ class ApprovalController extends Controller
             return response()->json(['error' => 'You are not authorized to decline for this group'], 403);
         }
 
-        // Check if this approval can be processed (hierarchy check)
-        $groupPriorities = Group::whereIn('name', $userGroupNames)
-            ->pluck('priority', 'name')
-            ->toArray();
-            
-        if (!$approval->canBeApprovedByGroup($userGroupNames, $groupPriorities)) {
+        // Check hierarchy: higher priority groups must approve first
+        if (!$approval->canBeApprovedByGroup($userGroupNames, [])) {
             return response()->json(['error' => 'Cannot decline: higher priority groups must approve first'], 403);
         }
         
